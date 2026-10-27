@@ -866,8 +866,6 @@ func (t *TreeWidget) handleShortcutKey(r rune) EventResult {
 	return EventIgnored
 }
 
-// LabelX is the screen column where the last render drew the node's label, or
-// -1 when the node was not drawn by the tree's own row renderer.
 func (n *TreeNode) LabelX() int { return n.labelX }
 
 func (n *TreeNode) isExpandable() bool {

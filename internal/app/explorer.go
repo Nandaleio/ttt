@@ -22,13 +22,9 @@ type NavigationPanel struct {
 	Icons    string
 	Roots    []string
 
-	gitStyles map[string]term.Style
-	// compactStarts maps a compact folder row's ID (its deepest directory) to
-	// the first directory of the chain, so a reload rebuilds the same row and
-	// expansion state, keyed by the deepest ID, still matches it.
+	gitStyles     map[string]term.Style
 	compactStarts map[string]string
-	// restoring is the expansion state Reload and SetRoots are replaying.
-	restoring map[string]bool
+	restoring     map[string]bool
 
 	OnOpenFile   func(path string)
 	OnAction     func(commandID string)
@@ -183,9 +179,6 @@ func (n *NavigationPanel) Reload() {
 	n.Tree.SetSelectedIndex(n.Tree.SelectedIndex())
 }
 
-// collectExpanded records an open compact row under every folder in its
-// chain: a new entry in one of them splits the row, and the rows it splits
-// into must reopen even though their IDs are not the one that was saved.
 func (n *NavigationPanel) collectExpanded() map[string]bool {
 	expanded := map[string]bool{}
 	n.Tree.CollectExpanded(expanded)
@@ -203,8 +196,6 @@ func (n *NavigationPanel) collectExpanded() map[string]bool {
 	return expanded
 }
 
-// compactChain lists the folders a compact row with this ID stands for, from
-// the deepest up to the first.
 func (n *NavigationPanel) compactChain(id string) []string {
 	start, ok := n.compactStarts[id]
 	if !ok {
@@ -324,8 +315,6 @@ func (n *NavigationPanel) WatchedDirs() []string {
 			return
 		}
 		add(node.ID)
-		// A compact row stands for every directory in its chain; a file
-		// appearing in any of them splits the row.
 		if !isRoot {
 			for dir := filepath.Dir(node.ID); dir != parent && strings.HasPrefix(dir, parent+string(filepath.Separator)); dir = filepath.Dir(dir) {
 				add(dir)
@@ -369,11 +358,7 @@ func (n *NavigationPanel) loadChildren(node *widgets.TreeNode) {
 	}
 }
 
-// compact merges a folder whose only entry is another folder into one row,
-// labelled "a/b/c" and identified by the deepest folder, so explorer actions
-// on the row target the folder whose contents are shown beneath it.
 func (n *NavigationPanel) compact(node *widgets.TreeNode) {
-	// Merging past a symlink would hide it from ExpandAll's symlink guard.
 	if isSymlink(node.ID) {
 		return
 	}
@@ -406,9 +391,6 @@ func (n *NavigationPanel) compact(node *widgets.TreeNode) {
 	}
 }
 
-// compactSegmentAt returns the folder for the segment of a compact row drawn at
-// screen column x. Context menu actions only read the node's ID, so a segment
-// other than the deepest is handed out as a detached node for its folder.
 func (n *NavigationPanel) compactSegmentAt(node *widgets.TreeNode, x int) *widgets.TreeNode {
 	if _, compacted := n.compactStarts[node.ID]; !compacted || node.LabelX() < 0 || x < node.LabelX() {
 		return node

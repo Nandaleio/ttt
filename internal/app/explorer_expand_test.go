@@ -43,7 +43,7 @@ func TestExplorerExpandAllReachesEveryVisibleDescendantAndCollapseAllClosesTree(
 	if gitMetadata == nil || gitMetadata.Expanded || len(gitMetadata.Children) != 0 {
 		t.Fatalf("bulk expansion traversed .git metadata: %+v", gitMetadata)
 	}
-	for _, label := range []string{"deep", "one", "two", "deep.txt", "visible", "inner", "inner.txt", ".hidden", "hidden.txt", ".ignored", "ignored.txt"} {
+	for _, label := range []string{"deep/one/two", "deep.txt", "visible", "inner", "inner.txt", ".hidden", "hidden.txt", ".ignored", "ignored.txt"} {
 		node := nodeWithLabel(root.Children, label)
 		if node == nil {
 			t.Errorf("one expand did not materialize %q", label)

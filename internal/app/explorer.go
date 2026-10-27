@@ -8,6 +8,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/textwidth"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
@@ -22,6 +23,12 @@ type NavigationPanel struct {
 	Roots    []string
 
 	gitStyles map[string]term.Style
+	// compactStarts maps a compact folder row's ID (its deepest directory) to
+	// the first directory of the chain, so a reload rebuilds the same row and
+	// expansion state, keyed by the deepest ID, still matches it.
+	compactStarts map[string]string
+	// restoring is the expansion state Reload and SetRoots are replaying.
+	restoring map[string]bool
 
 	OnOpenFile   func(path string)
 	OnAction     func(commandID string)
@@ -31,9 +38,10 @@ type NavigationPanel struct {
 
 func NewNavigationPanel(settings config.ExplorerSettings, icons string, paths ...string) *NavigationPanel {
 	n := &NavigationPanel{
-		Settings: settings,
-		Icons:    icons,
-		Roots:    paths,
+		Settings:      settings,
+		Icons:         icons,
+		Roots:         paths,
+		compactStarts: make(map[string]string),
 	}
 
 	items := make([]*widgets.TreeNode, len(paths))
@@ -84,7 +92,7 @@ func NewNavigationPanel(settings config.ExplorerSettings, icons string, paths ..
 					n.OnRootMenu(node, sx, sy)
 				}
 			} else if n.OnRightClick != nil {
-				n.OnRightClick(node, sx, sy)
+				n.OnRightClick(n.compactSegmentAt(node, sx), sx, sy)
 			}
 		},
 	})
@@ -123,11 +131,11 @@ func (n *NavigationPanel) RevealPath(path string) bool {
 	}
 	folders := []*widgets.TreeNode{root}
 	node := root
-	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+	for node.ID != path {
 		if !node.Expanded || len(node.Children) == 0 {
 			n.loadChildren(node)
 		}
-		node = childWithID(node.Children, filepath.Join(node.ID, part))
+		node = childContaining(node.Children, path)
 		if node == nil {
 			return false
 		}
@@ -153,9 +161,9 @@ func (n *NavigationPanel) rootContaining(path string) *widgets.TreeNode {
 	return best
 }
 
-func childWithID(nodes []*widgets.TreeNode, id string) *widgets.TreeNode {
+func childContaining(nodes []*widgets.TreeNode, path string) *widgets.TreeNode {
 	for _, node := range nodes {
-		if node.ID == id {
+		if node.ID == path || strings.HasPrefix(path, node.ID+string(filepath.Separator)) {
 			return node
 		}
 	}
@@ -163,7 +171,51 @@ func childWithID(nodes []*widgets.TreeNode, id string) *widgets.TreeNode {
 }
 
 func (n *NavigationPanel) Reload() {
-	n.Tree.Reload()
+	expanded := n.collectExpanded()
+	n.restoring = expanded
+	defer func() { n.restoring = nil }()
+	for _, root := range n.Tree.Config.Items {
+		if root.Expanded {
+			n.loadChildren(root)
+		}
+	}
+	n.Tree.RestoreExpanded(expanded)
+	n.Tree.SetSelectedIndex(n.Tree.SelectedIndex())
+}
+
+// collectExpanded records an open compact row under every folder in its
+// chain: a new entry in one of them splits the row, and the rows it splits
+// into must reopen even though their IDs are not the one that was saved.
+func (n *NavigationPanel) collectExpanded() map[string]bool {
+	expanded := map[string]bool{}
+	n.Tree.CollectExpanded(expanded)
+	var chains []string
+	for id := range expanded {
+		if _, ok := n.compactStarts[id]; ok {
+			chains = append(chains, id)
+		}
+	}
+	for _, id := range chains {
+		for _, dir := range n.compactChain(id) {
+			expanded[dir] = true
+		}
+	}
+	return expanded
+}
+
+// compactChain lists the folders a compact row with this ID stands for, from
+// the deepest up to the first.
+func (n *NavigationPanel) compactChain(id string) []string {
+	start, ok := n.compactStarts[id]
+	if !ok {
+		return []string{id}
+	}
+	chain := []string{id}
+	for dir := id; dir != start && strings.HasPrefix(dir, start+string(filepath.Separator)); {
+		dir = filepath.Dir(dir)
+		chain = append(chain, dir)
+	}
+	return chain
 }
 
 func (n *NavigationPanel) ExpandAll() {
@@ -211,8 +263,9 @@ func (n *NavigationPanel) CollapseAll() {
 }
 
 func (n *NavigationPanel) SetRoots(paths []string) {
-	expanded := map[string]bool{}
-	n.Tree.CollectExpanded(expanded)
+	expanded := n.collectExpanded()
+	n.restoring = expanded
+	defer func() { n.restoring = nil }()
 
 	n.Roots = paths
 	multiRoot := len(paths) > 1
@@ -255,30 +308,132 @@ func (n *NavigationPanel) WatchedDirs() []string {
 	}
 	var dirs []string
 	seen := make(map[string]bool)
-	var walk func(node *widgets.TreeNode, isRoot bool)
-	walk = func(node *widgets.TreeNode, isRoot bool) {
+	add := func(dir string) {
+		if !seen[dir] {
+			seen[dir] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	var walk func(node *widgets.TreeNode, parent string)
+	walk = func(node *widgets.TreeNode, parent string) {
 		if node == nil {
 			return
 		}
-		if (isRoot || node.Expanded) && !seen[node.ID] {
-			seen[node.ID] = true
-			dirs = append(dirs, node.ID)
+		isRoot := parent == ""
+		if !isRoot && !node.Expanded {
+			return
 		}
-		if isRoot || node.Expanded {
-			for _, child := range node.Children {
-				if child.Expandable {
-					walk(child, false)
-				}
+		add(node.ID)
+		// A compact row stands for every directory in its chain; a file
+		// appearing in any of them splits the row.
+		if !isRoot {
+			for dir := filepath.Dir(node.ID); dir != parent && strings.HasPrefix(dir, parent+string(filepath.Separator)); dir = filepath.Dir(dir) {
+				add(dir)
+			}
+		}
+		for _, child := range node.Children {
+			if child.Expandable {
+				walk(child, node.ID)
 			}
 		}
 	}
 	for _, root := range n.Tree.Config.Items {
-		walk(root, true)
+		walk(root, "")
 	}
 	return dirs
 }
 
 func (n *NavigationPanel) loadChildren(node *widgets.TreeNode) {
+	n.loadEntries(node)
+	if !n.Settings.CompactFolders {
+		return
+	}
+	if !n.isRoot(node) {
+		n.compact(node)
+	}
+	var starts map[string]bool
+	for _, child := range node.Children {
+		if !child.Expandable || len(n.compactStarts) == 0 {
+			continue
+		}
+		if starts == nil {
+			starts = make(map[string]bool, len(n.compactStarts))
+			for _, start := range n.compactStarts {
+				starts[start] = true
+			}
+		}
+		if starts[child.ID] {
+			n.loadEntries(child)
+			n.compact(child)
+		}
+	}
+}
+
+// compact merges a folder whose only entry is another folder into one row,
+// labelled "a/b/c" and identified by the deepest folder, so explorer actions
+// on the row target the folder whose contents are shown beneath it.
+func (n *NavigationPanel) compact(node *widgets.TreeNode) {
+	// Merging past a symlink would hide it from ExpandAll's symlink guard.
+	if isSymlink(node.ID) {
+		return
+	}
+	start, ok := n.compactStarts[node.ID]
+	if !ok {
+		start = node.ID
+	}
+	for id, s := range n.compactStarts {
+		if s == start {
+			delete(n.compactStarts, id)
+		}
+	}
+	for len(node.Children) == 1 && node.Children[0].Expandable && !isSymlink(node.Children[0].ID) {
+		child := node.Children[0]
+		node.ID = child.ID
+		node.Label += "/" + child.Label
+		node.LabelStyle = child.LabelStyle
+		n.loadEntries(node)
+	}
+	if node.ID != start {
+		n.compactStarts[node.ID] = start
+	}
+	if n.restoring != nil {
+		for _, dir := range n.compactChain(node.ID) {
+			if n.restoring[dir] {
+				n.restoring[node.ID] = true
+				break
+			}
+		}
+	}
+}
+
+// compactSegmentAt returns the folder for the segment of a compact row drawn at
+// screen column x. Context menu actions only read the node's ID, so a segment
+// other than the deepest is handed out as a detached node for its folder.
+func (n *NavigationPanel) compactSegmentAt(node *widgets.TreeNode, x int) *widgets.TreeNode {
+	if _, compacted := n.compactStarts[node.ID]; !compacted || node.LabelX() < 0 || x < node.LabelX() {
+		return node
+	}
+	segments := strings.Split(node.Label, "/")
+	end := node.LabelX()
+	for i, segment := range segments[:len(segments)-1] {
+		end += textwidth.String(segment) + 1
+		if x < end {
+			path := node.ID
+			for range len(segments) - 1 - i {
+				path = filepath.Dir(path)
+			}
+			return &widgets.TreeNode{ID: path, Label: segment, Expandable: true}
+		}
+	}
+	return node
+}
+
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
+}
+
+func (n *NavigationPanel) loadEntries(node *widgets.TreeNode) {
 	entries := ui.LoadDirEntries(node.ID, n.Settings)
 	node.Children = nil
 	for _, de := range entries {

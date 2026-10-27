@@ -53,7 +53,8 @@
     "showGitIgnored": true,
     "gitStatusColors": true,
     "dimStagedGitColors": false,
-    "autoReveal": false
+    "autoReveal": false,
+    "compactFolders": true
   },
   "git": {
     "fileView": "list"

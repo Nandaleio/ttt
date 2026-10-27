@@ -28,6 +28,7 @@ type TreeNode struct {
 	depth    int
 	parent   *TreeNode
 	chevronX int
+	labelX   int
 }
 
 type Action struct {
@@ -420,6 +421,7 @@ func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
 
 func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) {
 	node.chevronX = -1
+	node.labelX = -1
 	if t.Config.RenderItem != nil {
 		t.Config.RenderItem(surface, node, idx, y, w, idx == t.selected)
 		return
@@ -516,6 +518,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	if t.Config.TruncateLeft || node.TruncateLeft {
 		labelRunes = truncateRunesLeft(labelRunes, maxX-x)
 	}
+	node.labelX = t.contentX + x
 	x = drawRunesClipped(surface, x, y, maxX, labelRunes, labelStyle)
 
 	if node.Badge != "" && !t.Config.BadgeRight {
@@ -862,6 +865,10 @@ func (t *TreeWidget) handleShortcutKey(r rune) EventResult {
 	}
 	return EventIgnored
 }
+
+// LabelX is the screen column where the last render drew the node's label, or
+// -1 when the node was not drawn by the tree's own row renderer.
+func (n *TreeNode) LabelX() int { return n.labelX }
 
 func (n *TreeNode) isExpandable() bool {
 	return len(n.Children) > 0 || n.Expandable

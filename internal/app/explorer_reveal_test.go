@@ -31,7 +31,7 @@ func TestExplorerRevealPathExpandsAncestorsAndSelectsFile(t *testing.T) {
 	if !explorer.RevealPath(target) {
 		t.Fatal("RevealPath returned false for a file inside the root")
 	}
-	for _, label := range []string{"src", "app", "deep"} {
+	for _, label := range []string{"src/app/deep"} {
 		if node := nodeWithLabel(root.Children, label); node == nil || !node.Expanded {
 			t.Errorf("ancestor %q not expanded: %+v", label, node)
 		}

@@ -171,6 +171,7 @@ String detection uses the language grammar independently of theme colors and whe
 | `explorer.gitStatusColors` | bool | `true` | Color files and folders in the file explorer by their git status (modified, new, deleted, conflicted). Colors come from the theme's `warning`, `success`, `danger`, and `conflict` colors |
 | `explorer.dimStagedGitColors` | bool | `false` | Render staged changes in a dimmed version of their status color, telling them apart from pending ones. Off by default: the Changes panel already separates staged from unstaged, and the extra shades make the explorer busier. Needs `explorer.gitStatusColors` |
 | `explorer.autoReveal` | bool | `false` | Expand the file explorer to the active file and select it whenever the active file changes. **Explorer: Reveal Active File** does the same on demand |
+| `explorer.compactFolders` | bool | `true` | Show a folder whose only entry is another folder as one row, such as `src/main/java`. Expanding the row opens the whole chain. Right-clicking a segment acts on that folder; other actions on the row apply to the deepest folder |
 
 ## Quick Open
 
@@ -366,7 +367,8 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
     "showGitIgnored": true,
     "gitStatusColors": true,
     "dimStagedGitColors": false,
-    "autoReveal": false
+    "autoReveal": false,
+    "compactFolders": true
   },
   "sidebar": {
     "panelOrder": ["explorer", "search", "changes", "outline"]

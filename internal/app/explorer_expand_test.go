@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
 func TestExplorerExpandAllReachesEveryVisibleDescendantAndCollapseAllClosesTree(t *testing.T) {
@@ -52,10 +51,15 @@ func TestExplorerExpandAllReachesEveryVisibleDescendantAndCollapseAllClosesTree(
 		}
 	}
 	explorer.CollapseAll()
-	for _, node := range []*widgets.TreeNode{root, nodeWithLabel(root.Children, "deep"), nodeWithLabel(root.Children, "visible")} {
-		if node != nil && node.Expanded {
-			t.Errorf("collapse left %q open", node.Label)
+	for _, label := range []string{"deep/one/two", "visible"} {
+		if node := nodeWithLabel(root.Children, label); node == nil {
+			t.Errorf("collapse removed %q", label)
+		} else if node.Expanded {
+			t.Errorf("collapse left %q open", label)
 		}
+	}
+	if root.Expanded {
+		t.Error("collapse left the root open")
 	}
 }
 

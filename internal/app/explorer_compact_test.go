@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -9,6 +10,20 @@ import (
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
+
+func forEachCompactMode(t *testing.T, run func(t *testing.T, compact bool)) {
+	for _, compact := range []bool{true, false} {
+		t.Run(fmt.Sprintf("compactFolders=%v", compact), func(t *testing.T) {
+			run(t, compact)
+		})
+	}
+}
+
+func compactSettings(compact bool) config.ExplorerSettings {
+	settings := config.DefaultExplorerSettings()
+	settings.CompactFolders = compact
+	return settings
+}
 
 func expandExplorerNode(t *testing.T, explorer *NavigationPanel, node *widgets.TreeNode) {
 	t.Helper()
@@ -103,12 +118,32 @@ func TestExplorerWatchesEveryFolderInExpandedCompactRow(t *testing.T) {
 	}
 }
 
+func TestExplorerCompactStopsAtDirectorySymlink(t *testing.T) {
+	rootPath := t.TempDir()
+	externalPath := t.TempDir()
+	writeRevealFixture(t, externalPath, "inner/file.txt")
+	if err := os.MkdirAll(filepath.Join(rootPath, "links"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(externalPath, filepath.Join(rootPath, "links", "target")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	explorer := NewNavigationPanel(config.DefaultExplorerSettings(), config.IconsNone, rootPath)
+	links := nodeWithLabel(explorer.Tree.Config.Items[0].Children, "links")
+	expandExplorerNode(t, explorer, links)
+
+	if links.Label != "links" || links.ID != filepath.Join(rootPath, "links") {
+		t.Fatalf("compaction crossed the symlink: %q (%s)", links.Label, links.ID)
+	}
+	if got, want := childLabels(links), []string{"target"}; !slices.Equal(got, want) {
+		t.Fatalf("links children = %v, want %v", got, want)
+	}
+}
+
 func TestExplorerCompactFoldersSettingOff(t *testing.T) {
 	rootPath := t.TempDir()
 	writeRevealFixture(t, rootPath, "a/b/c/file.txt")
-	settings := config.DefaultExplorerSettings()
-	settings.CompactFolders = false
-	explorer := NewNavigationPanel(settings, config.IconsNone, rootPath)
+	explorer := NewNavigationPanel(compactSettings(false), config.IconsNone, rootPath)
 	a := explorer.Tree.Config.Items[0].Children[0]
 	expandExplorerNode(t, explorer, a)
 	if a.Label != "a" || len(a.Children) != 1 || a.Children[0].Label != "b" {
@@ -175,4 +210,38 @@ func TestExplorerCompactRowStaysOpenWhenChainGrows(t *testing.T) {
 	if row.Label != "a/b/c" || !row.Expanded || nodeWithLabel(row.Children, "inner.txt") == nil {
 		t.Fatalf("grown row = %q expanded=%v children %v", row.Label, row.Expanded, childLabels(row))
 	}
+}
+
+func TestExplorerReloadKeepsFoldersOpenAndSelectionWhenFolderIsAdded(t *testing.T) {
+	forEachCompactMode(t, func(t *testing.T, compact bool) {
+		rootPath := t.TempDir()
+		writeRevealFixture(t, rootPath, "src/main/java/App.java")
+		explorer := NewNavigationPanel(compactSettings(compact), config.IconsNone, rootPath)
+		app := filepath.Join(rootPath, "src", "main", "java", "App.java")
+		if !explorer.RevealPath(app) {
+			t.Fatal("RevealPath failed")
+		}
+
+		if err := os.Mkdir(filepath.Join(rootPath, "src", "main", "kotlin"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		explorer.Reload()
+
+		open := []string{"src", "main", "java"}
+		if compact {
+			open = []string{"src/main", "java"}
+		}
+		root := explorer.Tree.Config.Items[0]
+		for _, label := range open {
+			if node := nodeWithLabel(root.Children, label); node == nil || !node.Expanded {
+				t.Errorf("%q not open after reload: %+v", label, node)
+			}
+		}
+		if kotlin := nodeWithLabel(root.Children, "kotlin"); kotlin == nil || kotlin.Expanded {
+			t.Errorf("new folder = %+v, want a closed kotlin row", kotlin)
+		}
+		if selected := explorer.Tree.Selected(); selected == nil || selected.ID != app {
+			t.Fatalf("selected %+v after reload, want %s", selected, app)
+		}
+	})
 }

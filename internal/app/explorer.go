@@ -167,6 +167,10 @@ func childContaining(nodes []*widgets.TreeNode, path string) *widgets.TreeNode {
 }
 
 func (n *NavigationPanel) Reload() {
+	selectedID := ""
+	if selected := n.Tree.Selected(); selected != nil {
+		selectedID = selected.ID
+	}
 	expanded := n.collectExpanded()
 	n.restoring = expanded
 	defer func() { n.restoring = nil }()
@@ -176,6 +180,7 @@ func (n *NavigationPanel) Reload() {
 		}
 	}
 	n.Tree.RestoreExpanded(expanded)
+	n.Tree.SelectByID(selectedID)
 	n.Tree.SetSelectedIndex(n.Tree.SelectedIndex())
 }
 

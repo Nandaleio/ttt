@@ -32,7 +32,7 @@ describe("explorer reveal", () => {
     const s0 = tui.snapshot();
     const { snapshots } = tui.run();
 
-    expect(snapshots[s0]).toContain("▾ deep");
+    expect(snapshots[s0]).toContain("▾ src/deep");
     expect(snapshots[s0]).toMatch(/│\s+main\.go/);
   });
 
@@ -57,7 +57,7 @@ describe("explorer reveal", () => {
     const s0 = tui.snapshot();
     const { snapshots } = tui.run();
 
-    expect(snapshots[s0]).toContain("▾ deep");
+    expect(snapshots[s0]).toContain("▾ src/deep");
     expect(snapshots[s0]).toMatch(/│\s+main\.go/);
   });
 });

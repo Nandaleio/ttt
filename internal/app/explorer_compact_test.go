@@ -245,3 +245,30 @@ func TestExplorerReloadKeepsFoldersOpenAndSelectionWhenFolderIsAdded(t *testing.
 		}
 	})
 }
+
+func TestExplorerReloadKeepsSelectedFolderWhenItBecomesCompact(t *testing.T) {
+	forEachCompactMode(t, func(t *testing.T, compact bool) {
+		rootPath := t.TempDir()
+		writeRevealFixture(t, rootPath, "zeta.txt")
+		if err := os.Mkdir(filepath.Join(rootPath, "empty"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		explorer := NewNavigationPanel(compactSettings(compact), config.IconsNone, rootPath)
+		expandExplorerNode(t, explorer, nodeWithLabel(explorer.Tree.Config.Items[0].Children, "empty"))
+
+		for _, dir := range []string{"aaa", filepath.Join("empty", "sub")} {
+			if err := os.Mkdir(filepath.Join(rootPath, dir), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		explorer.Reload()
+
+		want := "empty"
+		if compact {
+			want = "empty/sub"
+		}
+		if selected := explorer.Tree.Selected(); selected == nil || selected.Label != want {
+			t.Fatalf("selected %+v after reload, want the %q row", selected, want)
+		}
+	})
+}

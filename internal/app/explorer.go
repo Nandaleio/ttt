@@ -180,8 +180,24 @@ func (n *NavigationPanel) Reload() {
 		}
 	}
 	n.Tree.RestoreExpanded(expanded)
-	n.Tree.SelectByID(selectedID)
+	n.selectRow(selectedID)
 	n.Tree.SetSelectedIndex(n.Tree.SelectedIndex())
+}
+
+func (n *NavigationPanel) selectRow(id string) {
+	if id == "" {
+		return
+	}
+	n.Tree.SelectByID(id)
+	if selected := n.Tree.Selected(); selected != nil && selected.ID == id {
+		return
+	}
+	for rowID := range n.compactStarts {
+		if slices.Contains(n.compactChain(rowID), id) {
+			n.Tree.SelectByID(rowID)
+			return
+		}
+	}
 }
 
 func (n *NavigationPanel) collectExpanded() map[string]bool {

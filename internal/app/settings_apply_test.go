@@ -5,6 +5,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
@@ -255,5 +256,40 @@ func TestReopeningTinyPanelResetsSize(t *testing.T) {
 	a.ensureUsablePanelSize()
 	if a.ContentSplit.BottomH != 20 || a.ContentSplit.RightW != ui.DefaultPanelWidth {
 		t.Fatalf("panel size = %dx%d, want 20x%d", a.ContentSplit.BottomH, a.ContentSplit.RightW, ui.DefaultPanelWidth)
+	}
+}
+
+func TestSidebarTabStyleAppliesAtStartupAndLive(t *testing.T) {
+	config.OverrideConfigDir = t.TempDir()
+	t.Cleanup(func() { config.OverrideConfigDir = "" })
+
+	settings := config.DefaultSettings()
+	settings.Sidebar.TabStyle = config.SidebarTabStyleIcon
+	a := buildTestApp(t, settings)
+	explorerLabel := func() string {
+		for _, item := range a.Sidebar.Tabs.Config.Items {
+			if item.ID == "explorer" {
+				return item.Label
+			}
+		}
+		return ""
+	}
+	icon := string(icons.Rune(icons.PanelExplorer))
+	if got := explorerLabel(); got != icon {
+		t.Fatalf("startup label = %q, want %q", got, icon)
+	}
+
+	next := *a.Settings
+	next.Sidebar.TabStyle = config.SidebarTabStyleLabelIcon
+	a.ApplySettings(next)
+	if got, want := explorerLabel(), icon+" Explore"; got != want {
+		t.Fatalf("label after apply = %q, want %q", got, want)
+	}
+
+	next.Sidebar.TabStyle = config.SidebarTabStyleIcon
+	next.Appearance.Icons = config.IconsNerdFont
+	a.ApplySettings(next)
+	if got, want := explorerLabel(), icons.Get(config.IconsNerdFont, icons.PanelExplorer); got != want {
+		t.Fatalf("label after icon mode change = %q, want %q", got, want)
 	}
 }

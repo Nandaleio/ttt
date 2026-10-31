@@ -4,6 +4,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
@@ -23,6 +24,8 @@ type TabbedPanel struct {
 	panels         []panelEntry
 	preferredOrder []string
 	flagged        map[string]bool
+	tabStyle       string
+	panelIcons     map[string]string
 }
 
 func NewTabbedPanel() TabbedPanel {
@@ -58,6 +61,29 @@ func (tp *TabbedPanel) SetPanelOrder(order []string) {
 	tp.preferredOrder = tp.normalizedPanelOrder(order)
 	tp.applyPreferredOrder()
 	tp.syncTabs()
+}
+
+// SetTabStyle chooses how tabs present a panel. A panel without an entry in
+// panelIcons, such as a plugin panel, always shows its title so it stays
+// identifiable.
+func (tp *TabbedPanel) SetTabStyle(style string, panelIcons map[string]string) {
+	tp.tabStyle = style
+	tp.panelIcons = panelIcons
+	tp.syncTabs()
+}
+
+func (tp *TabbedPanel) tabLabel(p panelEntry) string {
+	icon := tp.panelIcons[p.ID]
+	if icon == "" {
+		return p.Title
+	}
+	switch tp.tabStyle {
+	case config.SidebarTabStyleIcon:
+		return icon
+	case config.SidebarTabStyleLabelIcon:
+		return icon + " " + p.Title
+	}
+	return p.Title
 }
 
 func (tp *TabbedPanel) normalizedPanelOrder(order []string) []string {
@@ -333,7 +359,7 @@ func (tp *TabbedPanel) syncTabs() {
 	for i, p := range tp.panels {
 		items[i] = widgets.TabItem{
 			ID:      p.ID,
-			Label:   p.Title,
+			Label:   tp.tabLabel(p),
 			Active:  p.ID == tp.ActivePanel,
 			Dirty:   dirty[p.ID],
 			Flagged: tp.flagged[p.ID],

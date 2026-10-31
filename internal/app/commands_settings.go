@@ -31,6 +31,19 @@ func (a *App) ReloadSettings() {
 	a.StatusNotify("Settings reloaded")
 }
 
+func (a *App) applySidebarTabStyle(style string) {
+	if a.Sidebar == nil {
+		return
+	}
+	a.Sidebar.SetTabStyle(style, map[string]string{
+		"explorer": string(icons.Rune(icons.PanelExplorer)),
+		"search":   string(icons.Rune(icons.PanelSearch)),
+		"changes":  string(icons.Rune(icons.PanelChanges)),
+		"outline":  string(icons.Rune(icons.PanelOutline)),
+		"plugins":  string(icons.Rune(icons.PanelPlugins)),
+	})
+}
+
 func (a *App) applyIcons(ap config.AppearanceSettings) {
 	for _, warning := range icons.Configure(ap.Icons, ap.Overrides) {
 		a.LogOutput("warn", "settings", warning)
@@ -148,6 +161,7 @@ func (a *App) ApplySettings(s config.Settings) {
 	}
 
 	a.applyIcons(s.Appearance)
+	a.applySidebarTabStyle(s.Sidebar.TabStyle)
 	a.applyGrammarSettings(s.Editor.Grammars)
 	a.EditorGroup.ApplyFileWordWrap()
 

@@ -55,6 +55,9 @@
     "dimStagedGitColors": false,
     "autoReveal": false
   },
+  "sidebar": {
+    "tabStyle": "label"
+  },
   "git": {
     "fileView": "list"
   },

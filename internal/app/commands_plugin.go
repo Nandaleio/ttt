@@ -312,6 +312,9 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	for _, theme := range p.Manifest.Themes {
 		kvEntries = append(kvEntries, widgets.KeyValueEntry{Key: "Theme", Value: theme.ID()})
 	}
+	for _, d := range p.Manifest.Debuggers {
+		kvEntries = append(kvEntries, widgets.KeyValueEntry{Key: "Debugger", Value: d.Title()})
+	}
 
 	content := widgets.NewWrappingKeyValueListWidget(kvEntries)
 	content.InvertStyles = true

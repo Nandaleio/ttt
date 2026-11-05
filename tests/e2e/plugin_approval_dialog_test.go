@@ -76,3 +76,31 @@ func TestPluginApprovalDialogWrapsExecPathOnNarrowScreen(t *testing.T) {
 		t.Fatalf("wrapped path reads %q, want %q\n%s", joined.String(), longExecPath, h.screenText())
 	}
 }
+
+func TestPluginApprovalDialogListsDebuggers(t *testing.T) {
+	th := newTestHarness(t, 100, 30)
+	defer th.stop()
+	pluginsDir := filepath.Join(th.dir, "config", "plugins")
+	dir := filepath.Join(pluginsDir, "debug-go")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"name": "debug-go", "permissions": {"system.exec": ["dlv"]},
+		"debuggers": [{"type": "go", "label": "Delve", "command": "dlv", "args": ["dap"]}]}`
+	if err := os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := plugin.NewManager(pluginsDir, filepath.Join(th.dir, "config", "plugins.ttt.json"))
+	th.app.PluginManager = m
+	t.Cleanup(m.Shutdown)
+	pending := m.LoadAll()
+	if len(pending) != 1 {
+		t.Fatalf("pending approvals = %d, want 1", len(pending))
+	}
+	th.app.ShowPluginApprovalDialog(pending[0])
+	th.redraw()
+	th.assertContains("debug-go requests")
+	th.assertContains("Debugger")
+	th.assertContains("Delve")
+	th.assertContains("dlv")
+}

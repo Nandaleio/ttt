@@ -112,12 +112,26 @@ func (c *Codec) Send(msg any) error {
 }
 
 func (c *Codec) Receive() (Message, error) {
+	body, err := c.ReceiveFrame()
+	if err != nil {
+		return Message{}, err
+	}
+	var msg Message
+	if err := json.Unmarshal(body, &msg); err != nil {
+		return Message{}, err
+	}
+	return msg, nil
+}
+
+// ReceiveFrame reads one Content-Length frame and returns its body without
+// assuming JSON-RPC, so protocols sharing the framing (DAP) can decode it.
+func (c *Codec) ReceiveFrame() ([]byte, error) {
 	contentLen := -1
 	headerBytes := 0
 	for {
 		line, err := c.readHeaderLine(maxHeaderBytes - headerBytes)
 		if err != nil {
-			return Message{}, err
+			return nil, err
 		}
 		headerBytes += len(line)
 		line = strings.TrimRight(line, "\r\n")
@@ -127,26 +141,22 @@ func (c *Codec) Receive() (Message, error) {
 		if val, ok := strings.CutPrefix(line, "Content-Length: "); ok {
 			n, err := strconv.Atoi(val)
 			if err != nil {
-				return Message{}, fmt.Errorf("bad Content-Length: %w", err)
+				return nil, fmt.Errorf("bad Content-Length: %w", err)
 			}
 			if c.maxContentLength > 0 && n > c.maxContentLength {
-				return Message{}, fmt.Errorf("message of %d bytes exceeds the %d byte limit", n, c.maxContentLength)
+				return nil, fmt.Errorf("message of %d bytes exceeds the %d byte limit", n, c.maxContentLength)
 			}
 			contentLen = n
 		}
 	}
 	if contentLen < 0 {
-		return Message{}, fmt.Errorf("missing Content-Length header")
+		return nil, fmt.Errorf("missing Content-Length header")
 	}
 	body := make([]byte, contentLen)
 	if _, err := io.ReadFull(c.reader, body); err != nil {
-		return Message{}, err
+		return nil, err
 	}
-	var msg Message
-	if err := json.Unmarshal(body, &msg); err != nil {
-		return Message{}, err
-	}
-	return msg, nil
+	return body, nil
 }
 
 func (c *Codec) readHeaderLine(remaining int) (string, error) {

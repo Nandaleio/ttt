@@ -52,6 +52,7 @@ Packages are grouped by the dependency zones in [`ARCHITECTURE.md`](ARCHITECTURE
 
 **Services**: external-process and external-state integration, exposing typed operations and results without owning widgets.
 
+- **`internal/dap/`**: Debug Adapter Protocol client. Shares Content-Length framing with `internal/jsonrpc` (`Codec.ReceiveFrame`) but not its message shape. `Session.Start` sends launch before configuration because many adapters answer launch only after `configurationDone`. Spawns adapters over stdio or TCP (`${port}`); ttt ships no adapters, plugins contribute them.
 - **`internal/git/`**: git CLI wrapper (status, staging, commit, repo discovery).
 - **`internal/github/`**: `gh` CLI wrapper for pull requests.
 - **`internal/jsonrpc/`**: JSON-RPC 2.0 with Content-Length framing: `Codec` and a bidirectional `Conn` (calls, notifications, and peer requests). Transport-agnostic; used by LSP and the plugin `ttt.rpc` module.

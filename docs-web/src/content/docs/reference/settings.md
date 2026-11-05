@@ -243,6 +243,27 @@ Below the favorites, the welcome page lists the last 10 folders opened under **R
 | `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server binary is not installed |
 | `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. Configured automatically by LSP plugins (e.g. `lsp-go`, `lsp-typescript`). The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
+## Debugger
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `debugger.configurations` | object[] | `[]` | Launch and attach configurations. Each has a `name`, a `type` naming a plugin-contributed [debug adapter](/guides/plugin-authoring/#debugger-plugins), a `request` of `"launch"` or `"attach"`, and optional `args` sent to the adapter as its launch or attach arguments. |
+
+`args` belong to the adapter, so their fields depend on it. Every string in them (including object keys) may use `${workspaceFolder}`, `${file}` and `${fileDirname}`; any other `${...}` is passed through unchanged.
+
+```json
+"debugger": {
+  "configurations": [
+    {
+      "name": "Debug main package",
+      "type": "go",
+      "request": "launch",
+      "args": { "mode": "debug", "program": "${workspaceFolder}" }
+    }
+  ]
+}
+```
+
 ## Search
 
 | Key | Type | Default | Description |

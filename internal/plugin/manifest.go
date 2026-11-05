@@ -19,16 +19,17 @@ import (
 const SupportedAPIVersion = 2
 
 type Manifest struct {
-	Name        string        `json:"name"`
-	DisplayName string        `json:"displayName,omitempty"`
-	Description string        `json:"description"`
-	Version     string        `json:"version"`
-	Author      string        `json:"author"`
-	Entry       string        `json:"entry"`
-	API         int           `json:"api,omitempty"`
-	Permissions PermissionSet `json:"permissions"`
-	Grammars    []Grammar     `json:"grammars,omitempty"`
-	Themes      []Theme       `json:"themes,omitempty"`
+	Name        string         `json:"name"`
+	DisplayName string         `json:"displayName,omitempty"`
+	Description string         `json:"description"`
+	Version     string         `json:"version"`
+	Author      string         `json:"author"`
+	Entry       string         `json:"entry"`
+	API         int            `json:"api,omitempty"`
+	Permissions PermissionSet  `json:"permissions"`
+	Grammars    []Grammar      `json:"grammars,omitempty"`
+	Themes      []Theme        `json:"themes,omitempty"`
+	Debuggers   []DebugAdapter `json:"debuggers,omitempty"`
 }
 
 type Theme struct {
@@ -100,7 +101,7 @@ func LoadManifest(dir string) (Manifest, error) {
 	if m.Name == "" {
 		return Manifest{}, fmt.Errorf("manifest missing required field: name")
 	}
-	if m.Entry == "" && len(m.Grammars) == 0 && len(m.Themes) == 0 {
+	if m.Entry == "" && len(m.Grammars) == 0 && len(m.Themes) == 0 && len(m.Debuggers) == 0 {
 		return Manifest{}, fmt.Errorf("manifest missing required field: entry")
 	}
 	for _, g := range m.Grammars {
@@ -124,6 +125,9 @@ func LoadManifest(dir string) (Manifest, error) {
 			return Manifest{}, fmt.Errorf("duplicate theme name %q", name)
 		}
 		seenThemes[name] = true
+	}
+	if err := validateDebugAdapters(m.Debuggers, m.Permissions); err != nil {
+		return Manifest{}, err
 	}
 	if err := m.Permissions.NetworkHTTP.Validate(); err != nil {
 		return Manifest{}, err

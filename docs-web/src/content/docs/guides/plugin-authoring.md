@@ -50,11 +50,12 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 | `description` | string | no       | Shown in the plugin list dialog.                    |
 | `version`     | string | no       | Semver version string.                              |
 | `author`      | string | no       | Plugin author name.                                 |
-| `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. Optional when the plugin declares `grammars` or `themes`. |
+| `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. Optional when the plugin declares `grammars`, `themes` or `debuggers`. |
 | `api`         | number | no       | Plugin API version the plugin targets. Defaults to `1` when omitted. The editor refuses to load plugins that target a newer API than it supports. |
 | `permissions` | object | no       | Object declaring required permissions (see [Permissions Reference](#permissions-reference)). |
 | `grammars`    | array  | no       | TextMate grammars the plugin contributes (see [Grammar plugins](#grammar-plugins)). |
 | `themes`      | array  | no       | Theme JSON files the plugin contributes (see [Theme plugins](#theme-plugins)). |
+| `debuggers`   | array  | no       | Debug adapters the plugin contributes (see [Debugger plugins](#debugger-plugins)). |
 
 ### Minimal Example
 
@@ -137,6 +138,39 @@ The grammar's `scopeName` comes from the file itself. Grammars from VS Code exte
 The approval dialog lists each grammar. When the user allows the plugin, ttt copies its grammar files into `~/.config/ttt/grammars/` and adds them to the [`editor.grammars`](/reference/settings/#grammars) setting, and open files switch to the new highlighting right away. Updating or reloading the plugin copies the files again. Disabling it keeps its grammars; uninstalling removes the files and their settings entries.
 
 A grammar whose file types match a built-in language replaces it, and other grammars that include the replaced scope (for example, Markdown code fences) use the replacement.
+
+### Debugger plugins
+
+ttt ships no debug adapters. A plugin contributes one by declaring how to start a [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/) server; ttt starts it and speaks the protocol itself, so no Lua code is needed:
+
+```json
+{
+  "name": "debug-go",
+  "version": "1.0.0",
+  "permissions": { "system.exec": ["dlv"] },
+  "debuggers": [
+    {
+      "type": "go",
+      "label": "Delve",
+      "languages": ["go"],
+      "command": "dlv",
+      "args": ["dap", "--listen", "127.0.0.1:${port}"],
+      "transport": "tcp"
+    }
+  ]
+}
+```
+
+| Field       | Required | Description |
+|-------------|----------|-------------|
+| `type`      | yes      | Adapter id. Debug configurations select the adapter by this value; it must be unique within the plugin. |
+| `command`   | yes      | Binary to run. It must be listed in `system.exec`, or the manifest is rejected: declaring an adapter grants no extra execution. |
+| `args`      | no       | Arguments for `command`. |
+| `transport` | no       | `stdio` (default): DAP over the adapter's stdin and stdout. `tcp`: ttt picks a free port, substitutes it for `${port}` in `args` (required), and connects to `127.0.0.1` on that port. |
+| `languages` | no       | Lower-case language names the adapter debugs, used to decide whether a gutter click sets a breakpoint. |
+| `label`     | no       | Name shown in the UI; defaults to `type`. |
+
+The adapter is available while the plugin is enabled and its `command` is granted. When two plugins declare the same `type`, the first loaded wins. Users point a [`debugger.configurations`](/reference/settings/#debugger) entry at the adapter's `type`.
 
 ## Plugin Lifecycle
 

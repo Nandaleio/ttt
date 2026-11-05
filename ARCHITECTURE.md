@@ -66,7 +66,7 @@ lifecycle.
 
 ### Services
 
-Packages: `internal/git`, `internal/github`, `internal/jsonrpc`,
+Packages: `internal/dap`, `internal/git`, `internal/github`, `internal/jsonrpc`,
 `internal/lsp`, `internal/terminal`, `internal/watcher`, and
 `internal/workspace`.
 

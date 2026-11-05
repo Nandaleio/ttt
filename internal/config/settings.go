@@ -441,6 +441,7 @@ type Settings struct {
 	Git          GitSettings          `json:"git"`
 	Terminal     TerminalSettings     `json:"terminal"`
 	LSP          LSPSettings          `json:"lsp"`
+	Debugger     DebuggerSettings     `json:"debugger,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete"`
 	Markdown     MarkdownSettings     `json:"markdown"`
 	Image        ImageSettings        `json:"image"`
@@ -460,7 +461,7 @@ type Settings struct {
 // Any other top-level key is preserved via Settings.Extra.
 var knownSettingsKeys = map[string]bool{
 	"version": true, "theme": true, "debugMode": true, "reuseWindow": true, "appearance": true, "editor": true,
-	"search": true, "quickOpen": true, "explorer": true, "sidebar": true, "panel": true, "git": true, "terminal": true, "lsp": true,
+	"search": true, "quickOpen": true, "explorer": true, "sidebar": true, "panel": true, "git": true, "terminal": true, "lsp": true, "debugger": true,
 	"autocomplete": true, "markdown": true, "image": true, "plugins": true, "formatters": true, "welcome": true,
 }
 
